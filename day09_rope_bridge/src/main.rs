@@ -1,10 +1,14 @@
-use std::{collections::HashSet, io::stdin};
+use std::{
+    collections::HashSet,
+    io::stdin,
+    ops::{Add, AddAssign},
+};
 
 struct Rope {
-    h: (i32, i32),
-    t: (i32, i32),
+    v: Vec<Coord>,
 }
 
+#[derive(Debug)]
 enum Direction {
     U,
     D,
@@ -12,40 +16,103 @@ enum Direction {
     R,
 }
 
-impl Rope {
-    fn new() -> Self {
-        Rope {
-            h: (0, 0),
-            t: (0, 0),
-        }
+#[derive(Eq, PartialEq, Hash, Debug, Copy, Clone)]
+struct Coord {
+    i: i32,
+    j: i32,
+}
+
+impl Coord {
+    fn new() -> Coord {
+        Coord { i: 0, j: 0 }
     }
-    fn step(&mut self, dir: &Direction) {
-        let (hi, hj) = self.h;
-        self.h = match dir {
-            Direction::U => (hi - 1, hj),
-            Direction::D => (hi + 1, hj),
-            Direction::L => (hi, hj - 1),
-            Direction::R => (hi, hj + 1),
-        };
+}
 
-        let (hi, hj) = self.h;
-        let (ti, tj) = self.t;
+impl Add for Coord {
+    type Output = Coord;
 
-        self.t = match (hi - ti, hj - tj) {
-            (2, _) => (hi - 1, hj),
-            (-2, _) => (hi + 1, hj),
-            (_, 2) => (hi, hj - 1),
-            (_, -2) => (hi, hj + 1),
-            _ => match ((hi - ti).abs(), (hj - tj).abs()) {
-                (1, 1) | (0, 1) | (1, 0) | (0, 0) => (ti, tj),
-                _ => panic!("unexpected positions h:{:?} t:{:?}", self.h, self.t),
-            },
+    fn add(self, other: Coord) -> Coord {
+        Coord {
+            i: self.i + other.i,
+            j: self.j + other.j,
         }
     }
 }
 
+impl AddAssign for Coord {
+    fn add_assign(&mut self, other: Coord) {
+        *self = Coord {
+            i: self.i + other.i,
+            j: self.j + other.j,
+        };
+    }
+}
+
+impl Rope {
+    fn new(size: usize) -> Self {
+        Rope {
+            v: vec![Coord::new(); size],
+        }
+    }
+    fn step(&mut self, dir: &Direction) {
+        self.v[0] += match dir {
+            Direction::U => Coord { i: -1, j: 0 },
+            Direction::D => Coord { i: 1, j: 0 },
+            Direction::L => Coord { i: 0, j: -1 },
+            Direction::R => Coord { i: 0, j: 1 },
+        };
+
+        for i in 0..self.v.len() - 1 {
+            let (left, right) = self.v.split_at_mut(i + 1);
+            let h = &mut left[i];
+            let t = &mut right[0];
+
+            Rope::step_segment(h, t);
+        }
+    }
+
+    fn step_segment(h: &mut Coord, t: &mut Coord) {
+        let dist_i = (h.i - t.i).abs();
+        let dir_i = match h.i - t.i {
+            0 => 0,
+            diff => diff / diff.abs(),
+        };
+
+        let dist_j = (h.j - t.j).abs();
+        let dir_j = match h.j - t.j {
+            0 => 0,
+            diff => diff / diff.abs(),
+        };
+
+        let step = match dist_i + dist_j {
+            0 | 1 => Coord { i: 0, j: 0 },
+            2 => match dist_i {
+                0 => Coord { i: 0, j: dir_j },
+                1 => Coord { i: 0, j: 0 },
+                2 => Coord { i: dir_i, j: 0 },
+                _ => {
+                    panic!("unexpected values");
+                }
+            },
+            3 | 4 => Coord { i: dir_i, j: dir_j },
+            _ => panic!("unexpected value"),
+        };
+
+        *t += step;
+    }
+
+    fn tail(&self) -> &Coord {
+        self.v.last().unwrap()
+    }
+
+    #[allow(dead_code)]
+    fn head(&self) -> &Coord {
+        self.v.first().unwrap()
+    }
+}
+
 impl Direction {
-    fn parse_move(s: &str) -> (Direction, u32) {
+    fn parse_move(s: &String) -> (Direction, u32) {
         let tokens: Vec<&str> = s.split_whitespace().collect();
         let dir = tokens[0];
         let steps = tokens[1].parse().unwrap();
@@ -64,19 +131,26 @@ impl Direction {
 fn main() {
     let lines: Vec<String> = stdin().lines().filter_map(Result::ok).collect();
 
-    let mut rope = Rope::new();
+    let moves: Vec<(Direction, u32)> = lines.iter().map(Direction::parse_move).collect();
 
-    let mut tail_positions = HashSet::<(i32, i32)>::new();
+    let mut rope = Rope::new(2);
+    println!("part 1: {}", move_rope(&mut rope, &moves));
 
-    tail_positions.insert(rope.t);
+    let mut rope = Rope::new(10);
+    println!("part 2: {}", move_rope(&mut rope, &moves));
+}
 
-    for line in lines {
-        let (dir, steps) = Direction::parse_move(&line);
-        for _ in 0..steps {
+fn move_rope(rope: &mut Rope, moves: &Vec<(Direction, u32)>) -> usize {
+    let mut tail_positions = HashSet::<Coord>::new();
+
+    tail_positions.insert(*rope.tail());
+
+    for (dir, steps) in moves {
+        for _ in 0..*steps {
             rope.step(&dir);
-            tail_positions.insert(rope.t);
+            tail_positions.insert(*rope.tail());
         }
     }
 
-    println!("part 1: {}", tail_positions.len());
+    tail_positions.len()
 }
