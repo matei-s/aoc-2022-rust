@@ -51,6 +51,34 @@ impl Directory {
 }
 
 impl FileSystem {
+    fn build(lines: &Vec<String>) -> Self {
+        let root = Directory::new("/".to_string());
+        let mut fs = Self {
+            root: Rc::clone(&root),
+            current: Rc::clone(&root),
+        };
+
+        for line in lines[1..].iter() {
+            let cmd: Vec<&str> = line.split_whitespace().collect();
+            match cmd.as_slice() {
+                ["$", "cd", dir] => {
+                    fs.cd(dir);
+                }
+                ["$", "ls"] => {}
+                ["dir", _] => {}
+                [size, file] => {
+                    let size: u32 = size.parse().unwrap();
+                    fs.mkfile(file, size);
+                }
+                c => {
+                    println!("unrecognized command: {:?}", c)
+                }
+            }
+        }
+
+        fs
+    }
+
     fn cd(&mut self, dir: &str) {
         let new_dir = {
             if dir == ".." {
@@ -90,8 +118,8 @@ impl FileSystem {
             .insert(file.to_string(), size);
     }
 
-    fn compute_sizes(&self) {
-        self.root.borrow_mut().compute_size();
+    fn compute_sizes(&self) -> u32 {
+        self.root.borrow_mut().compute_size()
     }
 
     fn get_dirs(&self) -> Vec<DirRef> {
@@ -119,43 +147,28 @@ impl FileSystem {
 fn main() {
     let lines: Vec<String> = io::stdin().lines().filter_map(Result::ok).collect();
 
-    let fs = build_fs(&lines);
+    let fs = FileSystem::build(&lines);
     fs.tree();
-    fs.compute_sizes();
+    let total_size = fs.compute_sizes();
 
+    let size_threshold = 100_000;
     let result: u32 = fs
         .get_dirs()
         .iter()
-        .filter(|d| d.borrow().size <= 100000)
+        .filter(|d| d.borrow().size <= size_threshold)
         .fold(0, |acc, d| acc + d.borrow().size);
 
-    println!("part 1: {result}")
-}
+    println!("part 1: {result}");
 
-fn build_fs(lines: &Vec<String>) -> FileSystem {
-    let root = Directory::new("/".to_string());
-    let mut fs = FileSystem {
-        root: Rc::clone(&root),
-        current: Rc::clone(&root),
-    };
+    let space_to_free = 30_000_000 - (70_000_000 - total_size);
+    let result: u32 = fs
+        .get_dirs()
+        .iter()
+        .filter(|d| d.borrow().size >= space_to_free)
+        .min_by(|d1, d2| d1.borrow().size.cmp(&d2.borrow().size))
+        .unwrap()
+        .borrow()
+        .size;
 
-    for line in lines[1..].iter() {
-        let cmd: Vec<&str> = line.split_whitespace().collect();
-        match cmd.as_slice() {
-            ["$", "cd", dir] => {
-                fs.cd(dir);
-            }
-            ["$", "ls"] => {}
-            ["dir", _] => {}
-            [size, file] => {
-                let size: u32 = size.parse().unwrap();
-                fs.mkfile(file, size);
-            }
-            c => {
-                println!("unrecognized command: {:?}", c)
-            }
-        }
-    }
-
-    fs
+    println!("part 2: {result}");
 }
