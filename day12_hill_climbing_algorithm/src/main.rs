@@ -16,12 +16,22 @@ fn main() {
     hm[start] = b'a';
     hm[end] = b'z';
 
-    let path_length = find_path(&hm, start, end);
+    let distances = compute_distances(&hm, end);
 
-    println!("part 1: {path_length}");
+    println!("part 1: {}", distances[start]);
+
+    let mut min_dist = u32::MAX;
+
+    for ind in 0..distances.size {
+        if hm.v[ind] == b'a' && distances.v[ind] < min_dist {
+            min_dist = distances.v[ind];
+        }
+    }
+
+    println!("part 2: {min_dist}");
 }
 
-fn find_path(hm: &Grid<u8>, start: Cell, end: Cell) -> u32 {
+fn compute_distances(hm: &Grid<u8>, start: Cell) -> Grid<u32> {
     let mut queue = LinkedList::<Cell>::new();
     let mut distances = Grid::<u32>::new(hm.w, hm.h);
     distances.init(u32::MAX);
@@ -43,7 +53,7 @@ fn find_path(hm: &Grid<u8>, start: Cell, end: Cell) -> u32 {
         }
     }
 
-    distances[end]
+    distances
 }
 
 fn get_neighbors(hm: &Grid<u8>, cell: Cell) -> Vec<Cell> {
@@ -56,7 +66,7 @@ fn get_neighbors(hm: &Grid<u8>, cell: Cell) -> Vec<Cell> {
             continue;
         }
 
-        if hm[n_cell] > hm[cell] + 1 {
+        if hm[n_cell] + 1 < hm[cell] {
             continue;
         }
 

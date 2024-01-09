@@ -8,9 +8,10 @@ use std::{
 use crate::cell::Cell;
 
 pub struct Grid<T> {
-    v: Vec<T>,
+    pub v: Vec<T>,
     pub w: usize,
     pub h: usize,
+    pub size: usize,
 }
 
 impl Grid<u8> {
@@ -27,7 +28,12 @@ impl Grid<u8> {
             v.append(&mut line);
         }
 
-        Grid { v, w, h }
+        Grid {
+            v,
+            w,
+            h,
+            size: w * h,
+        }
     }
 }
 
@@ -37,6 +43,7 @@ impl<T: Default + Clone + Display + Debug + Eq + Copy> Grid<T> {
             v: vec![T::default(); w * h],
             w,
             h,
+            size: w * h,
         }
     }
 
