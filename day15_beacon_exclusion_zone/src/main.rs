@@ -1,22 +1,35 @@
-use std::{collections::HashSet, io::stdin};
+use std::{
+    collections::{HashMap, HashSet},
+    io::stdin,
+    time::Instant,
+};
 
 type SBPair = (i32, i32, i32, i32);
 
 fn main() {
+    let start_input_parsing = Instant::now();
     let lines: Vec<String> = stdin().lines().filter_map(Result::ok).collect();
-
     let y_line: i32 = lines[0].parse().unwrap();
     let search_max: i32 = lines[1].parse().unwrap();
-
     let coordinates = parse_coordinates(&lines[2..]);
+    let duration_input_parsing = start_input_parsing.elapsed();
 
+    let start_part1 = Instant::now();
     let position_count = compute_impossible_positions(&coordinates, y_line);
+    let duration_part1 = start_part1.elapsed();
+    println!("input parsing: {:?}", duration_input_parsing);
+    println!();
+
     println!("part 1: {position_count}");
+    println!("{:?}", duration_part1);
+    println!();
 
-    let pos = find_possible_position(&coordinates, search_max);
+    let start_part2 = Instant::now();
+    let pos = find_possible_position_v2(&coordinates, search_max);
     let encoding = pos.0 as u64 * 4000000 + pos.1 as u64;
-
+    let duration_part2 = start_part2.elapsed();
     println!("part 2: {encoding}");
+    println!("{:?}", duration_part2);
 }
 
 fn parse_coordinates(lines: &[String]) -> Vec<SBPair> {
@@ -102,6 +115,30 @@ fn find_possible_position(coordinates: &Vec<SBPair>, search_max: i32) -> (i32, i
     }
 
     panic!("point not found");
+}
+
+fn find_possible_position_v2(coordinates: &Vec<SBPair>, search_max: i32) -> (i32, i32) {
+    let mut sensor_ranges = HashMap::<(i32, i32), i32>::new();
+
+    for coordinate in coordinates.iter() {
+        sensor_ranges.insert((coordinate.0, coordinate.1), distance(coordinate));
+    }
+
+    let sr_vec: Vec<((i32, i32), i32)> = sensor_ranges.clone().into_iter().collect();
+
+    for (i, ((x1, y1), d1)) in sr_vec.iter().enumerate() {
+        for ((x2, y2), d2) in sr_vec[0..].iter() {
+            let ds = distance(&(*x1, *y1, *x2, *y2));
+            if x1 < x2 && y1 < y2 && (d1 + d2 == ds - 2 || d1 + d2 == ds - 3) {
+                println!("found UL-DR pair: ({x1}, {y1}: {d1}), ({x2}, {y2}: {d2})");
+            }
+            if x1 > x2 && y1 > y2 && (d1 + d2 == ds - 2 || d1 + d2 == ds - 3) {
+                println!("found UR-DL pair: ({x1}, {y1}: {d1}), ({x2}, {y2}: {d2})");
+            }
+        }
+    }
+
+    (0, 0)
 }
 
 fn distance((xs, ys, xb, yb): &SBPair) -> i32 {
